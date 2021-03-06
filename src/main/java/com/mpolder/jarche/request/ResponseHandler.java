@@ -1,12 +1,14 @@
 package com.mpolder.jarche.request;
 
 import com.mpolder.jarche.interfaces.IConfirmation;
+import lombok.Getter;
 
 import java.util.UUID;
 import java.util.function.Consumer;
 
 public class ResponseHandler {
-    private UUID id;
+    @Getter
+    private final UUID id;
     private Consumer<IConfirmation> onResponse;
 
     public ResponseHandler(UUID id) {
@@ -21,9 +23,5 @@ public class ResponseHandler {
         if (onResponse != null) {
             onResponse.accept(confirmation);
         }
-    }
-
-    public UUID getId() {
-        return id;
     }
 }

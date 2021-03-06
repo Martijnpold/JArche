@@ -1,6 +1,6 @@
 package com.mpolder.jarche.base;
 
-import com.mpolder.jarche.AuctionServer;
+import com.mpolder.jarche.JArcheServer;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -9,12 +9,12 @@ import java.net.InetSocketAddress;
 import java.util.HashMap;
 
 public class BasicWebSocketServer extends WebSocketServer {
-    private AuctionServer auctionServer;
+    private JArcheServer jarcheServer;
     private HashMap<ServerEvent, DataListener> listeners;
 
-    public BasicWebSocketServer(AuctionServer auctionServer, InetSocketAddress address) {
+    public BasicWebSocketServer(JArcheServer jarcheServer, InetSocketAddress address) {
         super(address);
-        this.auctionServer = auctionServer;
+        this.jarcheServer = jarcheServer;
         this.listeners = new HashMap<>();
     }
 
@@ -25,25 +25,25 @@ public class BasicWebSocketServer extends WebSocketServer {
     @Override
     public void onOpen(WebSocket webSocket, ClientHandshake clientHandshake) {
         DataListener c = listeners.get(ServerEvent.CONNECT);
-        if (c != null) c.onData(auctionServer, webSocket, clientHandshake);
+        if (c != null) c.onData(jarcheServer, webSocket, clientHandshake);
     }
 
     @Override
     public void onClose(WebSocket webSocket, int i, String s, boolean b) {
         DataListener c = listeners.get(ServerEvent.DISCONNECT);
-        if (c != null) c.onData(auctionServer, webSocket, s);
+        if (c != null) c.onData(jarcheServer, webSocket, s);
     }
 
     @Override
     public void onMessage(WebSocket webSocket, String s) {
         DataListener c = listeners.get(ServerEvent.MESSAGE);
-        if (c != null) c.onData(auctionServer, webSocket, s);
+        if (c != null) c.onData(jarcheServer, webSocket, s);
     }
 
     @Override
     public void onError(WebSocket webSocket, Exception e) {
         DataListener c = listeners.get(ServerEvent.ERROR);
-        if (c != null) c.onData(auctionServer, webSocket, e);
+        if (c != null) c.onData(jarcheServer, webSocket, e);
     }
 
     @Override

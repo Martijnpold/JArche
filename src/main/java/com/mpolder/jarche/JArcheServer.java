@@ -5,8 +5,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mpolder.jarche.base.BasicWebSocketServer;
-import com.mpolder.jarche.base.DefaultConnectionHandler;
 import com.mpolder.jarche.base.ServerEvent;
+import com.mpolder.jarche.interfaces.FeatureProfile;
 import com.mpolder.jarche.interfaces.IConfirmation;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.interfaces.IRequestPair;
@@ -20,18 +20,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class AuctionServer {
-    private BasicWebSocketServer wsServer;
-    private RequestCache requestCache;
-    private HandlerCache handlerCache;
+public class JArcheServer {
+    private final BasicWebSocketServer wsServer;
+    private final RequestCache requestCache;
+    private final HandlerCache handlerCache;
 
     //Object Mapping
-    private PairCache pairCache;
-    private ObjectMapper objectMapper;
-    private JsonParser jsonParser;
-    private Gson gson;
+    private final PairCache pairCache;
+    private final ObjectMapper objectMapper;
+    private final JsonParser jsonParser;
+    private final Gson gson;
 
-    public AuctionServer() {
+    public JArcheServer() {
         this.requestCache = new RequestCache();
         this.pairCache = new PairCache();
         this.handlerCache = new HandlerCache(pairCache);
@@ -39,12 +39,11 @@ public class AuctionServer {
         this.jsonParser = new JsonParser();
         this.gson = new Gson();
         this.wsServer = new BasicWebSocketServer(this, new InetSocketAddress(27015));
-        registerHandler(new DefaultConnectionHandler());
         registerListeners();
     }
 
     /**
-     * Start the auction server instance
+     * Start the server instance
      */
     public void start() {
         wsServer.start();
@@ -69,13 +68,16 @@ public class AuctionServer {
     public IConfirmation receiveRequest(WebSocket session, String data) {
         try {
             JsonObject json = jsonParser.parse(data).getAsJsonObject();
-            if(json.has("request")) {
+            if (json.has("request")) {
                 UUID id = UUID.fromString(json.get("id").getAsString());
                 String type = json.get("type").getAsString();
                 IRequestPair pair = pairCache.get(type);
-                if(pair != null) {
+                if (pair != null) {
                     IRequest req = objectMapper.readValue(json.get("request").getAsJsonObject().toString(), pair.request());
-                    if (!req.validate()) { System.out.println("Incoming request has an invalid structure!"); return null; }
+                    if (!req.validate()) {
+                        System.out.println("Incoming request has an invalid structure!");
+                        return null;
+                    }
                     IConfirmation conf = handlerCache.execute(session, req);
                     sendConf(session, conf, id);
                     return conf;
@@ -98,13 +100,16 @@ public class AuctionServer {
     }
 
     public JsonObject sendConf(WebSocket session, IConfirmation confirmation, UUID id) {
-        if (!confirmation.validate()) { System.out.println("Outgoing confirmation has an invalid structure!"); return null; }
-        JsonObject json = new JsonObject();
-        json.addProperty("id", id.toString());
-        json.add("confirmation", jsonParser.parse(gson.toJson(confirmation)));
+        if (confirmation.validate()) {
+            JsonObject json = new JsonObject();
+            json.addProperty("id", id.toString());
+            json.add("confirmation", jsonParser.parse(gson.toJson(confirmation)));
 
-        if (session != null) session.send(json.toString());
-        return json;
+            if (session != null) session.send(json.toString());
+            return json;
+        }
+        System.out.println("Outgoing confirmation has an invalid structure!");
+        return null;
     }
 
     /**
@@ -115,7 +120,10 @@ public class AuctionServer {
      * @return ResponseHandler being executed on confirmation
      */
     public ResponseHandler send(WebSocket session, IRequest request) {
-        if (!request.validate()) { System.out.println("Outgoing request has an invalid structure!" + request.getClass().getSimpleName()); return null; }
+        if (!request.validate()) {
+            System.out.println("Outgoing request has an invalid structure!" + request.getClass().getSimpleName());
+            return null;
+        }
         UUID id = UUID.randomUUID();
         ResponseHandler handler = new ResponseHandler(id);
         requestCache.cache(new SentRequest(id, request, handler));
@@ -126,7 +134,7 @@ public class AuctionServer {
         json.add("request", jsonParser.parse(gson.toJson(request)));
 
         if (session != null) {
-            if(!session.isClosed()) {
+            if (!session.isClosed()) {
                 session.send(json.toString());
             } else {
                 handlerCache.getConnectionHandler().onDisconnect(this, session);
@@ -163,12 +171,24 @@ public class AuctionServer {
             if (req != null) {
                 IRequestPair pair = pairCache.get(req.getSource());
                 IConfirmation conf = objectMapper.readValue(json.get("request").getAsJsonObject().toString(), pair.confirmation());
-                if (!conf.validate()) { System.out.println("Incoming confirmation has an invalid structure!"); return; }
+                if (!conf.validate()) {
+                    System.out.println("Incoming confirmation has an invalid structure!");
+                    return;
+                }
                 req.getHandler().resolve(conf);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Register a feature profile
+     *
+     * @param profile profile to register
+     */
+    public void registerProfile(FeatureProfile profile) {
+        handlerCache.registerProfile(profile);
     }
 
     /**

@@ -1,23 +1,31 @@
 package com.mpolder.jarche.request;
 
+import com.mpolder.jarche.interfaces.FeatureProfile;
 import com.mpolder.jarche.interfaces.IConfirmation;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.interfaces.IRequestPair;
 import com.mpolder.jarche.request.handler.IEventHandler;
 import com.mpolder.jarche.request.handler.ServerConnectionHandler;
+import lombok.Getter;
 import org.java_websocket.WebSocket;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
 
 public class HandlerCache {
-    private HashMap<Class<? extends IRequest>, IEventHandler> handlers;
+    private final HashMap<Class<? extends IRequest>, IEventHandler> handlers;
+    private final PairCache pairCache;
+
+    @Getter
     private ServerConnectionHandler connectionHandler;
-    private PairCache pairCache;
 
     public HandlerCache(PairCache pairCache) {
         handlers = new HashMap<>();
         this.pairCache = pairCache;
+    }
+
+    public void registerProfile(FeatureProfile profile) {
+        profile.getRequests().forEach(pairCache::register);
     }
 
     public void registerHandler(IEventHandler handler) {
@@ -46,9 +54,5 @@ public class HandlerCache {
             e.printStackTrace();
         }
         return null;
-    }
-
-    public ServerConnectionHandler getConnectionHandler() {
-        return connectionHandler;
     }
 }

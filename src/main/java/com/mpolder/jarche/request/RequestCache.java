@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.UUID;
 
 public class RequestCache {
-    private HashMap<UUID, SentRequest> cache;
+    private final HashMap<UUID, SentRequest> cache;
 
     public RequestCache() {
         cache = new HashMap<>();
