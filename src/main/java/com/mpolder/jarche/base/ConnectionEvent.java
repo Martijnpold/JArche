@@ -1,6 +1,6 @@
 package com.mpolder.jarche.base;
 
-public enum ServerEvent {
+public enum ConnectionEvent {
     CONNECT(),
     DISCONNECT(),
     MESSAGE(),

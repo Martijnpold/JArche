@@ -9,41 +9,39 @@ import java.net.InetSocketAddress;
 import java.util.HashMap;
 
 public class BasicWebSocketServer extends WebSocketServer {
-    private JArcheServer jarcheServer;
-    private HashMap<ServerEvent, DataListener> listeners;
+    private final HashMap<ConnectionEvent, DataListener> listeners;
 
-    public BasicWebSocketServer(JArcheServer jarcheServer, InetSocketAddress address) {
+    public BasicWebSocketServer(InetSocketAddress address) {
         super(address);
-        this.jarcheServer = jarcheServer;
         this.listeners = new HashMap<>();
     }
 
-    public <T> void addEventListener(ServerEvent event, DataListener onData) {
+    public <T> void addEventListener(ConnectionEvent event, DataListener onData) {
         listeners.put(event, onData);
     }
 
     @Override
     public void onOpen(WebSocket webSocket, ClientHandshake clientHandshake) {
-        DataListener c = listeners.get(ServerEvent.CONNECT);
-        if (c != null) c.onData(jarcheServer, webSocket, clientHandshake);
+        DataListener c = listeners.get(ConnectionEvent.CONNECT);
+        if (c != null) c.onData(webSocket, clientHandshake);
     }
 
     @Override
     public void onClose(WebSocket webSocket, int i, String s, boolean b) {
-        DataListener c = listeners.get(ServerEvent.DISCONNECT);
-        if (c != null) c.onData(jarcheServer, webSocket, s);
+        DataListener c = listeners.get(ConnectionEvent.DISCONNECT);
+        if (c != null) c.onData(webSocket, s);
     }
 
     @Override
     public void onMessage(WebSocket webSocket, String s) {
-        DataListener c = listeners.get(ServerEvent.MESSAGE);
-        if (c != null) c.onData(jarcheServer, webSocket, s);
+        DataListener c = listeners.get(ConnectionEvent.MESSAGE);
+        if (c != null) c.onData(webSocket, s);
     }
 
     @Override
     public void onError(WebSocket webSocket, Exception e) {
-        DataListener c = listeners.get(ServerEvent.ERROR);
-        if (c != null) c.onData(jarcheServer, webSocket, e);
+        DataListener c = listeners.get(ConnectionEvent.ERROR);
+        if (c != null) c.onData(webSocket, e);
     }
 
     @Override

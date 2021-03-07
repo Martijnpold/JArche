@@ -1,202 +1,62 @@
 package com.mpolder.jarche;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mpolder.jarche.base.BasicWebSocketServer;
-import com.mpolder.jarche.base.ServerEvent;
+import com.mpolder.jarche.base.ConnectionEvent;
 import com.mpolder.jarche.interfaces.FeatureProfile;
-import com.mpolder.jarche.interfaces.IConfirmation;
 import com.mpolder.jarche.interfaces.IRequest;
-import com.mpolder.jarche.interfaces.IRequestPair;
-import com.mpolder.jarche.request.*;
+import com.mpolder.jarche.request.ResponseHandler;
 import com.mpolder.jarche.request.handler.IEventHandler;
 import org.java_websocket.WebSocket;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class JArcheServer {
-    private final BasicWebSocketServer wsServer;
-    private final RequestCache requestCache;
-    private final HandlerCache handlerCache;
+    BasicWebSocketServer server;
+    JArcheBackend backend;
 
-    //Object Mapping
-    private final PairCache pairCache;
-    private final ObjectMapper objectMapper;
-    private final JsonParser jsonParser;
-    private final Gson gson;
-
-    public JArcheServer() {
-        this.requestCache = new RequestCache();
-        this.pairCache = new PairCache();
-        this.handlerCache = new HandlerCache(pairCache);
-        this.objectMapper = new ObjectMapper();
-        this.jsonParser = new JsonParser();
-        this.gson = new Gson();
-        this.wsServer = new BasicWebSocketServer(this, new InetSocketAddress(27015));
-        registerListeners();
+    public JArcheServer(int port) {
+        this.server = new BasicWebSocketServer(new InetSocketAddress(port));
+        this.backend = new JArcheBackend();
     }
 
-    /**
-     * Start the server instance
-     */
-    public void start() {
-        wsServer.start();
+    public ResponseHandler send(WebSocket socket, IRequest request) {
+        return backend.send(socket, request);
     }
 
-    /**
-     * Initialize the listeners
-     */
-    private void registerListeners() {
-        wsServer.addEventListener(ServerEvent.MESSAGE, ((server, socket, data) -> {
-            receiveRequest(socket, (String) data);
-            receiveConfirmation((String) data);
-        }));
-        wsServer.addEventListener(ServerEvent.CONNECT, (server, socket, data) -> {
-            handlerCache.getConnectionHandler().onConnect(this, socket);
-        });
-        wsServer.addEventListener(ServerEvent.DISCONNECT, (server, socket, data) -> {
-            handlerCache.getConnectionHandler().onDisconnect(this, socket);
-        });
-    }
-
-    public IConfirmation receiveRequest(WebSocket session, String data) {
-        try {
-            JsonObject json = jsonParser.parse(data).getAsJsonObject();
-            if (json.has("request")) {
-                UUID id = UUID.fromString(json.get("id").getAsString());
-                String type = json.get("type").getAsString();
-                IRequestPair pair = pairCache.get(type);
-                if (pair != null) {
-                    IRequest req = objectMapper.readValue(json.get("request").getAsJsonObject().toString(), pair.request());
-                    if (!req.validate()) {
-                        System.out.println("Incoming request has an invalid structure!");
-                        return null;
-                    }
-                    IConfirmation conf = handlerCache.execute(session, req);
-                    sendConf(session, conf, id);
-                    return conf;
-                } else {
-                    System.out.println("Received invalid request type: " + type);
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public void stop() {
-        try {
-            wsServer.stop();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public JsonObject sendConf(WebSocket session, IConfirmation confirmation, UUID id) {
-        if (confirmation.validate()) {
-            JsonObject json = new JsonObject();
-            json.addProperty("id", id.toString());
-            json.add("confirmation", jsonParser.parse(gson.toJson(confirmation)));
-
-            if (session != null) session.send(json.toString());
-            return json;
-        }
-        System.out.println("Outgoing confirmation has an invalid structure!");
-        return null;
-    }
-
-    /**
-     * Send a request to a single session
-     *
-     * @param session UUID of the session to emit to
-     * @param request Request to transmit
-     * @return ResponseHandler being executed on confirmation
-     */
-    public ResponseHandler send(WebSocket session, IRequest request) {
-        if (!request.validate()) {
-            System.out.println("Outgoing request has an invalid structure!" + request.getClass().getSimpleName());
-            return null;
-        }
-        UUID id = UUID.randomUUID();
-        ResponseHandler handler = new ResponseHandler(id);
-        requestCache.cache(new SentRequest(id, request, handler));
-
-        JsonObject json = new JsonObject();
-        json.addProperty("type", request.getClass().getSimpleName());
-        json.addProperty("id", id.toString());
-        json.add("request", jsonParser.parse(gson.toJson(request)));
-
-        if (session != null) {
-            if (!session.isClosed()) {
-                session.send(json.toString());
-            } else {
-                handlerCache.getConnectionHandler().onDisconnect(this, session);
-            }
-        }
-        return handler;
-    }
-
-    /**
-     * Send a request to all connected clients
-     *
-     * @param request Request to transmit
-     * @return ResponseHandlers being executed on confirmation
-     */
     public List<ResponseHandler> sendAll(IRequest request) {
-        List<ResponseHandler> handlers = new ArrayList<>();
-        for (WebSocket client : wsServer.getConnections()) {
-            ResponseHandler handler = send(client, request);
-            handlers.add(handler);
-        }
-        return handlers;
+        return getConnections().parallelStream().map(x -> backend.send(x, request)).collect(Collectors.toList());
     }
 
-    /**
-     * Receive a plain json confirmation string
-     *
-     * @param data Plain json data
-     */
-    public void receiveConfirmation(String data) {
-        try {
-            JsonObject json = jsonParser.parse(data).getAsJsonObject();
-            UUID uuid = UUID.fromString(json.get("id").getAsString());
-            SentRequest req = requestCache.decache(uuid);
-            if (req != null) {
-                IRequestPair pair = pairCache.get(req.getSource());
-                IConfirmation conf = objectMapper.readValue(json.get("request").getAsJsonObject().toString(), pair.confirmation());
-                if (!conf.validate()) {
-                    System.out.println("Incoming confirmation has an invalid structure!");
-                    return;
-                }
-                req.getHandler().resolve(conf);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public Collection<WebSocket> getConnections() {
+        return server.getConnections();
     }
 
-    /**
-     * Register a feature profile
-     *
-     * @param profile profile to register
-     */
+    public void start() {
+        server.start();
+    }
+
+    public void stop() throws IOException, InterruptedException {
+        server.stop();
+    }
+
     public void registerProfile(FeatureProfile profile) {
-        handlerCache.registerProfile(profile);
+        backend.registerProfile(profile);
     }
 
-    /**
-     * Register a request handler
-     *
-     * @param handler handler to register
-     */
     public void registerHandler(IEventHandler handler) {
-        handlerCache.registerHandler(handler);
+        backend.registerHandler(handler);
+    }
+
+    public void registerListeners() {
+        server.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> {
+            backend.handleRequest(socket, (String) data);
+            backend.handleConfirmation((String) data);
+        }));
+        server.addEventListener(ConnectionEvent.CONNECT, (socket, data) -> backend.handleConnect(socket));
+        server.addEventListener(ConnectionEvent.DISCONNECT, (socket, data) -> backend.handleDisconnect(socket));
     }
 }
