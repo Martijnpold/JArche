@@ -5,7 +5,7 @@ import com.mpolder.jarche.base.ConnectionEvent;
 import com.mpolder.jarche.interfaces.FeatureProfile;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.request.ResponseHandler;
-import com.mpolder.jarche.request.handler.IEventHandler;
+import com.mpolder.jarche.interfaces.IEventHandler;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -17,6 +17,7 @@ public class JArcheClient {
     public JArcheClient(String ip, int port) throws URISyntaxException {
         this.client = new BasicWebSocketClient(new URI(ip + ":" + port));
         this.backend = new JArcheBackend();
+        registerListeners();
     }
 
     public ResponseHandler send(IRequest request) {
@@ -41,7 +42,7 @@ public class JArcheClient {
         backend.registerHandler(handler);
     }
 
-    public void registerListeners() {
+    private void registerListeners() {
         client.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> {
             backend.handleRequest(socket, (String) data);
             backend.handleConfirmation((String) data);

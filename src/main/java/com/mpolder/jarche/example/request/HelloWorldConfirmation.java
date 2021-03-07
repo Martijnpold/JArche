@@ -1,4 +1,4 @@
-package com.mpolder.jarche.request.helloworld;
+package com.mpolder.jarche.example.request;
 
 import com.mpolder.jarche.interfaces.IConfirmation;
 

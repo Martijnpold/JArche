@@ -1,4 +1,4 @@
-package com.mpolder.jarche.request.helloworld;
+package com.mpolder.jarche.example.request;
 
 import com.mpolder.jarche.interfaces.IRequest;
 
@@ -18,7 +18,6 @@ public class HelloWorldRequest implements IRequest {
 
     @Override
     public boolean validate() {
-        boolean valid = this.message != null && !this.message.equals("");
-        return false;
+        return this.message != null;
     }
 }

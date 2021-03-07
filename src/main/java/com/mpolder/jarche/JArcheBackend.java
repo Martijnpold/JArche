@@ -9,7 +9,7 @@ import com.mpolder.jarche.interfaces.IConfirmation;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.interfaces.IRequestPair;
 import com.mpolder.jarche.request.*;
-import com.mpolder.jarche.request.handler.IEventHandler;
+import com.mpolder.jarche.interfaces.IEventHandler;
 import org.java_websocket.WebSocket;
 
 import java.io.IOException;
@@ -52,7 +52,7 @@ public class JArcheBackend {
             if (!session.isClosed()) {
                 session.send(json.toString());
             } else {
-                handlerCache.getConnectionHandler().onDisconnect(session);
+                throw new RuntimeException("Socket is not connected.");
             }
         }
         return handler;
@@ -104,7 +104,7 @@ public class JArcheBackend {
             SentRequest req = requestCache.decache(uuid);
             if (req != null) {
                 IRequestPair pair = pairCache.get(req.getSource());
-                IConfirmation conf = objectMapper.readValue(json.get("request").getAsJsonObject().toString(), pair.confirmation());
+                IConfirmation conf = objectMapper.readValue(json.get("confirmation").getAsJsonObject().toString(), pair.confirmation());
                 if (!conf.validate()) {
                     System.out.println("Incoming confirmation has an invalid structure!");
                     return;

@@ -5,7 +5,7 @@ import com.mpolder.jarche.base.ConnectionEvent;
 import com.mpolder.jarche.interfaces.FeatureProfile;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.request.ResponseHandler;
-import com.mpolder.jarche.request.handler.IEventHandler;
+import com.mpolder.jarche.interfaces.IEventHandler;
 import org.java_websocket.WebSocket;
 
 import java.io.IOException;
@@ -21,6 +21,7 @@ public class JArcheServer {
     public JArcheServer(int port) {
         this.server = new BasicWebSocketServer(new InetSocketAddress(port));
         this.backend = new JArcheBackend();
+        registerListeners();
     }
 
     public ResponseHandler send(WebSocket socket, IRequest request) {
@@ -51,7 +52,7 @@ public class JArcheServer {
         backend.registerHandler(handler);
     }
 
-    public void registerListeners() {
+    private void registerListeners() {
         server.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> {
             backend.handleRequest(socket, (String) data);
             backend.handleConfirmation((String) data);

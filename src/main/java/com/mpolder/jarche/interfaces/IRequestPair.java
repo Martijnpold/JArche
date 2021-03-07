@@ -1,7 +1,5 @@
 package com.mpolder.jarche.interfaces;
 
-import com.mpolder.jarche.request.handler.IEventHandler;
-
 public interface IRequestPair {
     Class<? extends IEventHandler> handler();
 

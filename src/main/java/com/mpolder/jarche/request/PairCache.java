@@ -3,7 +3,7 @@ package com.mpolder.jarche.request;
 import com.mpolder.jarche.interfaces.IConfirmation;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.interfaces.IRequestPair;
-import com.mpolder.jarche.request.helloworld.HelloWorldPair;
+import com.mpolder.jarche.example.request.HelloWorldPair;
 
 import java.util.ArrayList;
 import java.util.HashMap;

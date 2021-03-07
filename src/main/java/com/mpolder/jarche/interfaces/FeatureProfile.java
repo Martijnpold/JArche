@@ -18,5 +18,5 @@ public abstract class FeatureProfile {
         requests.add(pair);
     }
 
-    abstract void loadRequests();
+    protected abstract void loadRequests();
 }

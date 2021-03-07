@@ -1,10 +1,10 @@
-package com.mpolder.jarche.request.helloworld;
+package com.mpolder.jarche.example.request;
 
+import com.mpolder.jarche.example.handler.HelloWorldRequestHandler;
 import com.mpolder.jarche.interfaces.IConfirmation;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.interfaces.IRequestPair;
-import com.mpolder.jarche.request.handler.HelloWorldRequestHandler;
-import com.mpolder.jarche.request.handler.IEventHandler;
+import com.mpolder.jarche.interfaces.IEventHandler;
 
 public class HelloWorldPair implements IRequestPair {
     @Override
