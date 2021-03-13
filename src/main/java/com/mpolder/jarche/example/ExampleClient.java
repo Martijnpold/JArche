@@ -8,7 +8,7 @@ import com.mpolder.jarche.example.request.HelloWorldRequest;
 import java.net.URISyntaxException;
 
 public class ExampleClient {
-    public static void main(String[] args) throws URISyntaxException, InterruptedException {
+    public static void main(String[] args) throws URISyntaxException {
         JArcheClient client = new JArcheClient("ws://127.0.0.1", 27015);
         client.registerHandler(new ExampleConnectionHandler());
         client.connect();

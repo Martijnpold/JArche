@@ -11,8 +11,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 public class JArcheClient {
-    BasicWebSocketClient client;
-    JArcheBackend backend;
+    private final BasicWebSocketClient client;
+    private final JArcheBackend backend;
 
     public JArcheClient(String ip, int port) throws URISyntaxException {
         this.client = new BasicWebSocketClient(new URI(ip + ":" + port));

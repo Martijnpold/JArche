@@ -18,7 +18,6 @@ public class HelloWorldConfirmation implements IConfirmation {
 
     @Override
     public boolean validate() {
-        boolean valid = this.message != null && !this.message.equals("");
-        return valid;
+        return this.message != null && !this.message.equals("");
     }
 }

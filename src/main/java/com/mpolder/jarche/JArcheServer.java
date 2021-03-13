@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class JArcheServer {
-    BasicWebSocketServer server;
-    JArcheBackend backend;
+    private final BasicWebSocketServer server;
+    private final JArcheBackend backend;
 
     public JArcheServer(int port) {
         this.server = new BasicWebSocketServer(new InetSocketAddress(port));
