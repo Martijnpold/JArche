@@ -43,10 +43,7 @@ public class JArcheClient {
     }
 
     private void registerListeners() {
-        client.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> {
-            backend.handleRequest(socket, (String) data);
-            backend.handleConfirmation((String) data);
-        }));
+        client.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> backend.handleData(socket, (String) data)));
         client.addEventListener(ConnectionEvent.CONNECT, (socket, data) -> backend.handleConnect(socket));
         client.addEventListener(ConnectionEvent.DISCONNECT, (socket, data) -> backend.handleDisconnect(socket));
     }

@@ -1,18 +1,17 @@
 package com.mpolder.jarche;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.mpolder.jarche.interfaces.FeatureProfile;
-import com.mpolder.jarche.interfaces.IConfirmation;
-import com.mpolder.jarche.interfaces.IRequest;
-import com.mpolder.jarche.interfaces.IRequestPair;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+import com.mpolder.jarche.interfaces.*;
 import com.mpolder.jarche.request.*;
-import com.mpolder.jarche.interfaces.IEventHandler;
+import lombok.SneakyThrows;
 import org.java_websocket.WebSocket;
 
-import java.io.IOException;
 import java.util.UUID;
 
 public class JArcheBackend {
@@ -22,97 +21,87 @@ public class JArcheBackend {
     //Object Mapping
     private final PairCache pairCache;
     private final ObjectMapper objectMapper;
-    private final JsonParser jsonParser;
-    private final Gson gson;
 
     public JArcheBackend() {
         this.requestCache = new RequestCache();
         this.pairCache = new PairCache();
         this.handlerCache = new HandlerCache(pairCache);
-        this.objectMapper = new ObjectMapper();
-        this.jsonParser = new JsonParser();
-        this.gson = new Gson();
+        this.objectMapper = JsonMapper.builder()
+                .addModule(new ParameterNamesModule())
+                .addModule(new Jdk8Module())
+                .addModule(new JavaTimeModule())
+                .build();
     }
 
+    @SneakyThrows
     public ResponseHandler send(WebSocket session, IRequest request) {
         if (!request.validate()) {
             System.out.println("Outgoing request has an invalid structure!" + request.getClass().getSimpleName());
             return null;
         }
+
         UUID id = UUID.randomUUID();
         ResponseHandler handler = new ResponseHandler(id);
-        requestCache.cache(new SentRequest(id, request, handler));
 
-        JsonObject json = new JsonObject();
-        json.addProperty("type", request.getClass().getSimpleName());
-        json.addProperty("id", id.toString());
-        json.add("request", jsonParser.parse(gson.toJson(request)));
-
-        if (session != null) {
-            if (!session.isClosed()) {
-                session.send(json.toString());
-            } else {
-                throw new RuntimeException("Socket is not connected.");
-            }
+        if (session != null && !session.isClosed()) {
+            FullRequest toSend = new FullRequest(id, request.getClass().getSimpleName(), objectMapper.valueToTree(request));
+            session.send(objectMapper.writeValueAsString(toSend));
+            requestCache.cache(new SentRequest(id, request, handler));
+        } else {
+            throw new RuntimeException("Socket is not connected.");
         }
         return handler;
     }
 
-    public IConfirmation handleRequest(WebSocket session, String data) {
+    public void handleData(WebSocket session, String data) {
         try {
-            JsonObject json = jsonParser.parse(data).getAsJsonObject();
-            if (json.has("request")) {
-                UUID id = UUID.fromString(json.get("id").getAsString());
-                String type = json.get("type").getAsString();
-                IRequestPair pair = pairCache.get(type);
-                if (pair != null) {
-                    IRequest req = objectMapper.readValue(json.get("request").getAsJsonObject().toString(), pair.request());
-                    if (!req.validate()) {
-                        System.out.println("Incoming request has an invalid structure!");
-                        return null;
-                    }
-                    IConfirmation conf = handlerCache.execute(session, req);
-                    send(session, conf, id);
-                    return conf;
-                } else {
-                    System.out.println("Received invalid request type: " + type);
-                }
-            }
-        } catch (IOException e) {
+            JsonNode tree = objectMapper.readTree(data);
+            if (tree.has("request")) handleRequest(session, tree);
+            if (tree.has("confirmation")) handleConfirmation(tree);
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        return null;
     }
 
-    public JsonObject send(WebSocket session, IConfirmation confirmation, UUID id) {
+    @SneakyThrows
+    public void handleRequest(WebSocket session, JsonNode data) {
+        FullRequest fullRequest = objectMapper.treeToValue(data, FullRequest.class);
+        IRequestPair pair = pairCache.get(fullRequest.getType());
+        if (pair != null) {
+            IRequest req = objectMapper.treeToValue(fullRequest.getRequest(), pair.request());
+            if (!req.validate()) {
+                System.out.println("Incoming request has an invalid structure!");
+                return;
+            }
+            IConfirmation conf = handlerCache.execute(session, req);
+            send(session, conf, fullRequest.getId());
+        } else {
+            System.out.println("Received invalid request type: " + fullRequest.getType());
+        }
+    }
+
+    @SneakyThrows
+    public void send(WebSocket session, IConfirmation confirmation, UUID id) {
         if (confirmation.validate()) {
-            JsonObject json = new JsonObject();
-            json.addProperty("id", id.toString());
-            json.add("confirmation", jsonParser.parse(gson.toJson(confirmation)));
-
-            if (session != null) session.send(json.toString());
-            return json;
+            if (session != null) {
+                FullConfirmation fullConfirmation = new FullConfirmation(id, objectMapper.valueToTree(confirmation));
+                session.send(objectMapper.writeValueAsString(fullConfirmation));
+            }
         }
-        System.out.println("Outgoing confirmation has an invalid structure!");
-        return null;
     }
 
-    public void handleConfirmation(String data) {
-        try {
-            JsonObject json = jsonParser.parse(data).getAsJsonObject();
-            UUID uuid = UUID.fromString(json.get("id").getAsString());
-            SentRequest req = requestCache.decache(uuid);
-            if (req != null) {
-                IRequestPair pair = pairCache.get(req.getSource());
-                IConfirmation conf = objectMapper.readValue(json.get("confirmation").getAsJsonObject().toString(), pair.confirmation());
-                if (!conf.validate()) {
-                    System.out.println("Incoming confirmation has an invalid structure!");
-                    return;
-                }
-                req.getHandler().resolve(conf);
+    @SneakyThrows
+    public void handleConfirmation(JsonNode data) {
+        FullConfirmation fullConfirmation = objectMapper.treeToValue(data, FullConfirmation.class);
+        SentRequest req = requestCache.decache(fullConfirmation.getId());
+        if (req != null) {
+            IRequestPair pair = pairCache.get(req.getSource());
+            IConfirmation conf = objectMapper.treeToValue(fullConfirmation.getConfirmation(), pair.confirmation());
+            if (!conf.validate()) {
+                System.out.println("Incoming confirmation has an invalid structure!");
+                return;
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+            req.getHandler().resolve(conf);
         }
     }
 

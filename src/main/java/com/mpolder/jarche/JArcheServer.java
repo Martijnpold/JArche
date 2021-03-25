@@ -1,5 +1,6 @@
 package com.mpolder.jarche;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.mpolder.jarche.base.BasicWebSocketServer;
 import com.mpolder.jarche.base.ConnectionEvent;
 import com.mpolder.jarche.interfaces.FeatureProfile;
@@ -53,10 +54,7 @@ public class JArcheServer {
     }
 
     private void registerListeners() {
-        server.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> {
-            backend.handleRequest(socket, (String) data);
-            backend.handleConfirmation((String) data);
-        }));
+        server.addEventListener(ConnectionEvent.MESSAGE, ((socket, data) -> backend.handleData(socket, (String) data)));
         server.addEventListener(ConnectionEvent.CONNECT, (socket, data) -> backend.handleConnect(socket));
         server.addEventListener(ConnectionEvent.DISCONNECT, (socket, data) -> backend.handleDisconnect(socket));
     }
