@@ -3,21 +3,21 @@ package com.mpolder.jarche;
 import com.mpolder.jarche.base.BasicWebSocketClient;
 import com.mpolder.jarche.base.ConnectionEvent;
 import com.mpolder.jarche.interfaces.FeatureProfile;
+import com.mpolder.jarche.interfaces.IEventHandler;
 import com.mpolder.jarche.interfaces.IRequest;
 import com.mpolder.jarche.request.ResponseHandler;
-import com.mpolder.jarche.interfaces.IEventHandler;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 
 public class JArcheClient {
-    private final BasicWebSocketClient client;
+    private final URI uri;
+    private BasicWebSocketClient client;
     private final JArcheBackend backend;
 
     public JArcheClient(String ip, int port) throws URISyntaxException {
-        this.client = new BasicWebSocketClient(new URI(ip + ":" + port));
+        this.uri = new URI(ip + ":" + port);
         this.backend = new JArcheBackend();
-        registerListeners();
     }
 
     public ResponseHandler send(IRequest request) {
@@ -25,13 +25,35 @@ public class JArcheClient {
     }
 
     public void connect() {
-        client.connect();
+        try {
+            if (client != null) client.close();
+            client = new BasicWebSocketClient(uri);
+            registerListeners();
+            client.connect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void reconnect() {
+        client.reconnect();
+    }
+
+    public boolean reconnectBlocking() {
+        try {
+            return client.reconnectBlocking();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     public void close() {
-        if (!client.isClosed()) {
-            client.close();
-        }
+        if (client != null) client.close();
+    }
+
+    public boolean isOpen() {
+        return client != null && client.isOpen();
     }
 
     public void registerProfile(FeatureProfile profile) {
