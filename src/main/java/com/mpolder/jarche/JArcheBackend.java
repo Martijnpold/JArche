@@ -1,7 +1,6 @@
 package com.mpolder.jarche;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
@@ -36,7 +35,8 @@ public class JArcheBackend {
     @SneakyThrows
     public ResponseHandler send(WebSocket session, IRequest request) {
         if (!request.validate()) {
-            System.out.println("Outgoing request has an invalid structure!" + request.getClass().getSimpleName());
+            System.out.println("Outgoing request has an invalid structure! (" + request.getClass().getSimpleName() + ")");
+            System.out.println(objectMapper.writeValueAsString(request));
             return null;
         }
 
